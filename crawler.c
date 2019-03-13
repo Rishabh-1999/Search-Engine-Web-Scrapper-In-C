@@ -4,6 +4,7 @@
 #include <sys/stat.h>
 #include <string.h>
 #define BASE_URL "www.chitkara.edu.in"
+#define urlLength 200
 
 struct LinkList                              // structure for linked list
 {
@@ -33,51 +34,64 @@ void check_Dir(char *dir)                           //Check Dir and Check permis
   }
 }
 
-void check_URL()                                    //check URL
-{
-    char v[]="wget --spider ";
-    char b[]=BASE_URL;
-    strcat(v,b);
-    if(!system(v))
-        printf("Valid URL\n");
-    else
-    {
-        printf("Invalid URL\n");
-        exit(0);
+char* changeurltochar(char *url) {                                // fuction to put null or \0 in last anad return
+    int i = 0;
+    while(1) {
+        if(url[i++] == '\0')
+            break;
+        i++;
     }
+    char *newurl = (char*)malloc(sizeof(char) * i+1);
+    newurl = url;
+    newurl[i] = '\0';
+    return newurl;
+}
+
+void check_URL(char *url)                                        //check URL
+{
+    char v[urlLength]="wget --spider ";
+    strcat(v,url);                                                 // CONCAT v and given url
+    if(strcmp(BASE_URL,changeurltochar(url)) && !system(v))      //check whether given url is same as base url
+    {
+        printf("Invalid URL\n");                                //display seed_url is incorrect
+        exit(0);                                                //exit if bse url is incorrect
+    }
+}
+
+char checkDepth(char *d)                                       // check given depth is wrong
+{
+        int DEPTH=0;                                            //intialize varable DEPTH
+        sscanf(d, "%d", &DEPTH);                                // change char to int
+        if(DEPTH>5 || DEPTH<1)                                  //check the depth of given argument that it is in range
+        {
+            printf("Check your depth");                         //if incorrect show error_message
+            exit(0);                                            // exit if depth is out of range
+        }
 }
 
 void checkArguments(int argc,char *argv[])
 {
     if(argc==4)                                                //check no of arguments
     {
-        if(strcmp(BASE_URL,argv[2]))                          //check whether given url is same as base url
-        {
-            printf("SEED_URL is incorrect");                   //display seed_url is incorrect
-            exit(0);                                           //exit if bse url is incorrect
-        }
-        int DEPTH=0;
-        sscanf(argv[2], "%d", &DEPTH);
-        if(DEPTH<5 && DEPTH<1)                                  //check the depth of given argument that it is in range
-        {
-            printf("Check your depth");                         //if incorrect show error_message
-            exit(0);                                            // exit if depth is out of range
-        }
-        check_Dir(argv[3]);
-        check_URL()  ;          // test directory
+        check_URL(argv[1])  ;                                   // check url
+        checkDepth(argv[2]);                                    //check DEPTH
+        check_Dir(argv[3]);                                     //check Directory
     }
     else
-    printf("Arguments not recieved not properly");
+    {
+        printf("Arguments not recieved not properly %d",argc);
+        exit(0);
+    }
 }
 
-void get_page(char *url)                            //get data in file
+void get_page(char *url)                                             //get data in file
 {
-    char urlbuffer[300]="wget -O ./temp/1.txt ";
+    char urlbuffer[urlLength]="wget -O ./temp/1.txt ";
     strcat(urlbuffer,url);
     int n=system(urlbuffer);
 }
 
-void removeWhiteSpace(char* html)                //REmove White Space
+void removeWhiteSpace(char* html)                                   //Remove White Space
 {
   char *buffer = (char*)malloc(strlen(html)+1), *p=(char*)malloc(sizeof(char)+1);
   memset(buffer,0,strlen(html)+1);
@@ -233,68 +247,72 @@ void putDatainLinkList(char **links)                    // function to put data 
 	Head = (struct LinkList*)malloc(sizeof(struct LinkList));
 	Listptr = Head;
 	Listptr->url = links[0];
-	Listptr->next = 0;
+	Listptr->next = NULL;
 	for(int i=1;i<100;i++)
 	{
 	  obj = (struct LinkList*)malloc(sizeof(struct LinkList));
 	  obj->url = links[i];
-	  obj->next = 0;
+	  obj->next = NULL;
 	  Listptr->next = obj;
 	  Listptr = Listptr->next;
 	}
-	while(Head->next != 0)  // printing all links!!
+	while(Head->next != 0)                               // printing all links!!
 	{
  	   printf("%s\n", Head->url);
 	   Head = Head->next;
 	}
 }
 
-void fetch_Url(char *url)   // function will take url from nextGenurl function and put it in the array and check duplicay wheater url exits in array or not!!
+void fetch_links(char *url)   // function will take url from nextGenurl function and put it in the array and check duplicay wheater url exits in array or not!!
 {
-    int File_Size =filesize();
-    File_Size++;
+    int file_Size =filesize();
+    file_Size++;
 
-	char *data = (char*)malloc(File_Size*sizeof(char));
-	data = readcontent();
+	char *filecontent = (char*)malloc(file_Size*sizeof(char));              // create pointer where all file content can store
+	filecontent = readcontent();
 
-	char *result = (char*)malloc(File_Size*sizeof(char));
-        int ans=0,flag=0,len=100,l=0;
-        char **links;
+	char *result = (char*)malloc(file_Size*sizeof(char));                   // create pointer where link will come from
+    int lastpos=0,flag=0,count=0;
 
-    links=(char **)malloc(sizeof(char *)*101);
+    char **linkarray;                                                       // create 2d array to store links
+
+    linkarray=(char **)malloc(sizeof(char *)*101);                          // giving space for rows
+
     for(int i=0;i<100;i++)
-      links[i] = (char *)malloc(sizeof(char)*200);
+      linkarray[i] = (char *)malloc(sizeof(char)*200);                      // each rows in allocated 200 char space
 
-	ans=GetNextURL(data,url,result ,0);
-	strcpy(links[l++],result);
+	lastpos=GetNextURL(filecontent,url,result ,0);
+	strcpy(linkarray[count++],result);
 
-    while(l<100)
+    while(count<100)
     {
-      ans=GetNextURL(data,url,result ,ans);
+      lastpos=GetNextURL(filecontent,url,result ,lastpos);
 
-      for(int j=0;j<l;j++)
+      for(int j=0;j<count;j++)
       {
-        if(strcmp(result,links[j])==0)
+        if(strcmp(result,linkarray[j])==0)
         {
           flag=1;
           break;
         }
       }
-      if(flag==0){
-       strcpy(links[l++],result);
+      if(flag==0)
+      {
+        strcpy(linkarray[count++],result);
       }
-      else{
-       ans=GetNextURL(data,url,result ,ans);
+      else
+      {
+       lastpos=GetNextURL(filecontent,url,result ,lastpos);
        flag=0;
       }
     }
-	putDatainLinkList(links);
+	putDatainLinkList(linkarray);
 }
 
 int main(int argc,char *argv[])
 {
     checkArguments(argc, argv);
-    get_page(argv[2]);
-    fetch_Url(argv[1]);
+    get_page(argv[1]);
+    fetch_links(argv[1]);
     return 0;
 }
