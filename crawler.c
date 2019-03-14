@@ -4,15 +4,23 @@
 #include <sys/stat.h>
 #include <string.h>
 #define BASE_URL "www.chitkara.edu.in"
-#define urlLength 200
+#define urlLength 1000
 
 struct LinkList                              // structure for linked list
 {
-	char* url;
+	char url[250];
 	int depth;
+	int key;
+	int visted;
 	struct LinkList *next;
-	struct LinkList *back;
+	//struct LinkList *prev;
 }*Head;
+
+struct hash
+{
+    struct LinkList *next;
+    struct LinkList *last;
+} node[50];
 
 void check_Dir(char *dir)                           //Check Dir and Check permission
 {
@@ -161,7 +169,6 @@ int GetNextURL(char* html, char* urlofthispage, char* result, int pos)
         strcpy(result, urlofthispage);
         result[i] = 0;
         strncat(result, p1, (p2 - p1));
-          printf("%s\n",result);
         return (int)(p2 - html + 1);
       } else {
         len = strlen(urlofthispage);
@@ -175,14 +182,12 @@ int GetNextURL(char* html, char* urlofthispage, char* result, int pos)
             strcpy(result, urlofthispage);
             result[i + 1] = 0;
             strncat(result, p1, p2 - p1);
-            printf("%s\n",result);
             return (int)(p2 - html + 1);
         }
         if ((i <= 6)||(i > j)) {
           strcpy(result, urlofthispage);
           result[len] = '/';
           strncat(result, p1, p2 - p1);
-            printf("%s\n",result);
           return (int)(p2 - html + 1);
         }
         strcpy(result, urlofthispage);
@@ -241,6 +246,126 @@ char transfer_File()                        // function to shift data from temp 
 	fclose(newFileName);
 }
 
+int findkey(char *str)
+{
+        int i=0,key=0;
+        while(str[i]!='\0')
+        {
+            key+=(int)str[i];
+            i++;
+        }
+        key=key/50;
+        return key;
+}
+
+void putDatainHash(char **result)
+{
+    struct hash *tnode=node;
+    struct LinkList *head=NULL;
+    struct LinkList *p=NULL,*temp=NULL;
+    int index=0;
+    for(int i=0;i<100;i++)
+    {
+        temp=(struct LinkList*)malloc(sizeof(struct LinkList));
+        strcpy(temp->url,result[i]);
+        temp->next=NULL;
+        //temp->prev=NULL;
+        //temp->depth=dep;
+        index=findkey(result[i]);
+        temp->key=index;
+        if(head==NULL)
+        {
+            head=temp;
+            tnode[index].next=temp;
+            tnode[index].last=temp;
+        }
+        else
+        {
+            if(tnode[index].next==NULL)
+            {
+                tnode[temp->key].next=temp;
+                tnode[temp->key].last=temp;
+                p=head;
+                while(p->next!=NULL)
+                {
+                    p=p->next;
+                }
+                 p->next=temp;
+               // temp->prev=p;
+            }
+            else if(tnode[index].next!=NULL)
+            {
+                struct LinkList *k=NULL,*k1=NULL;
+                k=tnode[temp->key].last;
+                k1=k->next;
+                if(k1==NULL)
+                {
+                  //  temp->prev=k;
+                    temp->next=NULL;
+                }
+                else
+                {
+                //    temp->prev=k;
+                    temp->next=k1;
+              //      k1->prev=temp;
+                }
+                k->next=temp;
+                tnode[index].last=temp;
+            }
+        }
+    }
+    Head=head;
+    head=Head;
+    while(head!=NULL)
+    {
+        printf("--%s\n",head->url);
+        head=head->next;
+    }
+
+}
+
+void saveFile()
+{
+    FILE *fp= fopen("links.txt", "wb+");
+    struct LinkList *head=Head;
+    int i=0;
+    while(i++<100)
+    {
+        fprintf(fp,"%s \n",head->url);
+        head=head->next;
+    }
+    fclose(fp);
+}
+
+void loadFile()
+{
+    FILE *fp= fopen("links.txt", "r+");
+    struct LinkList *head=Head;
+    int i=0,n;
+    char str[100];
+    head=(struct LinkList*)malloc(sizeof(struct LinkList));
+    n=fscanf(fp,"%s[^\n]", str);
+    strcpy(head->url,str);
+    head->next=NULL;
+    while(i<100)
+    {
+        head->next=(struct LinkList*)malloc(sizeof(struct LinkList));
+        head=head->next;
+        n=fscanf(fp,"%s[^\n]", str);
+        strcpy(head->url,str);
+        head->next=NULL;
+        i++;
+    }
+    head=Head;
+    for(int i=0;i<100;i++)
+    {
+        printf("-newLinkList--%s\n",head->url);
+        head=head->next;
+    }
+    fclose(fp);
+}
+
+/*
 void putDatainLinkList(char **links)                    // function to put data in linklist
 {
 	struct LinkList *obj, *Listptr;
@@ -253,17 +378,21 @@ void putDatainLinkList(char **links)                    // function to put data 
 	  obj = (struct LinkList*)malloc(sizeof(struct LinkList));
 	  obj->url = links[i];
 	  obj->next = NULL;
+	  obj->key=findkey(links[i]);
 	  Listptr->next = obj;
 	  Listptr = Listptr->next;
 	}
-	while(Head->next != 0)                               // printing all links!!
+	Listptr=Head;
+	while(Listptr->next != 0)                               // printing all links!!
 	{
- 	   printf("%s\n", Head->url);
-	   Head = Head->next;
+ 	   printf("%s %d\n", Listptr->url,Listptr->key);
+	   Listptr = Listptr->next;
 	}
+	free(links);
 }
+*/
 
-void fetch_links(char *url)   // function will take url from nextGenurl function and put it in the array and check duplicay wheater url exits in array or not!!
+char** fetch_links(char *url)   // function will take url from nextGenurl function and put it in the array and check duplicay wheater url exits in array or not!!
 {
     int file_Size =filesize();
     file_Size++;
@@ -276,7 +405,7 @@ void fetch_links(char *url)   // function will take url from nextGenurl function
 
     char **linkarray;                                                       // create 2d array to store links
 
-    linkarray=(char **)malloc(sizeof(char *)*101);                          // giving space for rows
+    linkarray=(char **)malloc(sizeof(char *)*102);                          // giving space for rows
 
     for(int i=0;i<100;i++)
       linkarray[i] = (char *)malloc(sizeof(char)*200);                      // each rows in allocated 200 char space
@@ -306,13 +435,18 @@ void fetch_links(char *url)   // function will take url from nextGenurl function
        flag=0;
       }
     }
-	putDatainLinkList(linkarray);
+	//putDatainLinkList(linkarray);
+	return(linkarray);
 }
 
 int main(int argc,char *argv[])
 {
+    char **ptr;
     checkArguments(argc, argv);
     get_page(argv[1]);
-    fetch_links(argv[1]);
+    ptr=fetch_links(argv[1]);
+    putDatainHash(ptr);
+    saveFile();
+    loadFile();
     return 0;
 }
