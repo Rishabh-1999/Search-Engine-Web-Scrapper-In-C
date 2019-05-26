@@ -1,113 +1,37 @@
-#include <stdio.h>
-#include <stdlib.h>
+#include<stdio.h>
+#include<stdlib.h>
+#include<string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <string.h>
-
 #define BASE_URL "www.chitkara.edu.in"
-#define urlLength 1000
+#define DEPTH 5
 
-struct LinkList                              // structure for linked list
+//Structure of Link Node
+struct Link
 {
-	char url[250];
-	int depth;
-	int key;
-	int flag;
-	int count;
-	struct LinkList *next;
-}*Head;
+        int Link_key;
+        int Link_flag;
+        char *Link_url;
+        struct Link *Link_next;
+        int Link_depth;
+}*head=NULL,*last=NULL;
 
-struct LinkList *last;
-struct hash
+//Structure of Link Hash Node
+struct Hash
 {
-    struct LinkList *next;
-    struct LinkList *last;
-    int count;
-} node[50];
+        struct Link* first;
+        struct Link* last;
+        int count;
+}hash[50];
 
-int check_Dir(char *dir) {                                           //Check Dir and Check permission
-  struct stat statbuf;                                              //Check Dir
-  if ( stat(dir, &statbuf) == -1 )
-  {
-    fprintf(stderr, "Invalid directory\n");
-    exit(1);
-  }
-  if ( !S_ISDIR(statbuf.st_mode) )                                   //Both check if there's a directory and if it's writable
-  {
-    fprintf(stderr, "Invalid directory entry. Your input isn't a directory\n");
-    exit(1);
-  }
-  if ( (statbuf.st_mode & S_IWUSR) != S_IWUSR )                         //Check Permission
-  {
-    fprintf(stderr, "Invalid directory entry. It isn't writable\n");
-    exit(1);
-  }
-  return 1;
-}
+void put_links_in_list(char **result,int l,int depth);
 
-char* changeurltochar(char *url) {                                      // fuction to put null or \0 in last anad return
-    int i = 0;
-    while(1) {
-        if(url[i] == '\0')
-            break;
-        i++;
-    }
-    char *newurl = (char*)malloc(sizeof(char) * i+1);
-    newurl = url;
-    newurl[i] = '\0';
-    return newurl;
-}
-
-int check_URL(char *url) {                                              //check URL
-    char v[urlLength]="wget --spider ";
-    strcat(v,url);
-		if(!system(v))
-		{                                                      // CONCAT v and given url
-    if(strcmp(BASE_URL,changeurltochar(url)) && !system(v))             //check whether given url is same as base url
-        return 0;
-		}
-		else                                                       //exit if bse url is incorrect
-				return 0;
-		return 1;
-}
-
-int checkDepth(char *d) {                                               // check given depth is wrong
-        int DEPTH=0;                                                    //intialize varable DEPTH
-        sscanf(d, "%d", &DEPTH);                                        // change char to int
-        if(DEPTH>5 || DEPTH<1)                                          //check the depth of given argument that it is in range
-            return 0;                                                   // exit if depth is out of range
-        return 1;
-}
-
-void checkArguments(int argc,char* argv[]) {                             // function to check whether all arguments are correct or not!!
-    	if(argc==4)
-            if(checkDepth(argv[2]))
-                if(check_URL(argv[1]))
-                    if(check_Dir(argv[3]))
-                    {
-                        printf("All Arguments are correct\n");
-                        return ;
-                    }
-                else
-                    printf("Invalid URL\n");                                            //display seed_url is incorrect
-            else
-                printf("Wrong input of Depth");
-        else
-            printf("Arguments not recieved not properly");
-        exit(0);
-}
-
-void get_page(char *url) {                                            //get data in file
-    char urlbuffer[urlLength]="wget -O ./temp.txt ";
-    strcat(urlbuffer,url);
-    int n=system(urlbuffer);
-}
-
-void removeWhiteSpace(char* html) {                                  //Remove White Space
-  char *buffer = (char*)malloc(strlen(html)+1), *p=(char*)malloc(sizeof(char)+1);
+//Function to remove or trim whiespace or space from Link
+void removeWhiteSpace(char* html) {
+  int i;
+  char *buffer = malloc(strlen(html)+1), *p=malloc (sizeof(char)+1);
   memset(buffer,0,strlen(html)+1);
-  for(int i=0;html[i];i++)
-  {
+  for (i=0;html[i];i++) {
     if(html[i]>32)
     {
       sprintf(p,"%c",html[i]);
@@ -115,52 +39,44 @@ void removeWhiteSpace(char* html) {                                  //Remove Wh
     }
   }
   strcpy(html,buffer);
-  free(buffer);
-  free(p);
+  free(buffer); free(p);
 }
 
+//Function to Get Link from Array containing data of webpage
 int GetNextURL(char* html, char* urlofthispage, char* result, int pos) {
-  char c;
+  char c, *p1,* p2;
   int len, i, j;
-  char* p1;
-  char* p2;
 
   if(pos == 0) {
     removeWhiteSpace(html);
   }
-  while (0 != (c = html[pos]))
-  {
-    if ((c=='<') && ((html[pos+1] == 'a') || (html[pos+1] == 'A'))) {
-      break;
-    }
+  while (0 != (c = html[pos])) {
+    if ((c=='<') &&
+        ((html[pos+1] == 'a') || (html[pos+1] == 'A')))
+                break;
     pos++;
   }
-  if (c)
-  {
+  if (c) {
     p1 = strchr(&(html[pos+1]), '=');
     if ((!p1) || (*(p1-1) == 'e') || ((p1 - html - pos) > 10))
-    {
       return GetNextURL(html,urlofthispage,result,pos+1);
-    }
     if (*(p1+1) == '\"' || *(p1+1) == '\'')
       p1++;
     p1++;
     p2 = strpbrk(p1, "\'\">");
     if (!p2)
-    {
       return GetNextURL(html,urlofthispage,result,pos+1);
-    }
     if (*p1 == '#')
-    {
       return GetNextURL(html,urlofthispage,result,pos+1);
-    }
     if (!strncmp(p1, "mailto:",7))
       return GetNextURL(html, urlofthispage, result, pos+1);
     if (!strncmp(p1, "http", 4) || !strncmp(p1, "HTTP", 4))
     {
       strncpy(result, p1, (p2-p1));
       return  (int)(p2 - html + 1);
-    } else {
+    }
+    else
+    {
       if (p1[0] == '.') {
         return GetNextURL(html,urlofthispage,result,pos+1);
       }
@@ -202,269 +118,398 @@ int GetNextURL(char* html, char* urlofthispage, char* result, int pos) {
   return -1;
 }
 
-int filesize() {                                                          //get filesize
-    struct stat st;
-    char str[]="./temp.txt";
-    stat(str,&st);                                                     // temp.txt is the file where wget fetch the html
-    int file_size=(int)st.st_size;
-    return file_size;
+//Function to check if link is alreday present or not
+int check_Already_Present(char *tmp,char **result,int l) {
+        for(int i=0;i<l;i++)
+                if(strcmp(result[i],tmp)==0)
+                        return 1;
+        return 0;
 }
 
-char *readcontent() {                                                     // get content from file
-    char *fcontent =(char*)malloc(sizeof(char)*filesize());
-    char str[]="./temp.txt";
-    FILE *fp= fopen(str, "r+");
-    char c;
-    int i=0;
-		c=getc(fp);
-    while(c!=EOF)
-    {
-			fcontent[i++]=c;
-      c=getc(fp);
-    }
-		fcontent[i]='\0';
-    fclose(fp);
-    return fcontent;
-}
-
-void transfer_File(char *f)                        // function to shift data from temp file to new actual file
-{
-	char File_Name[10]="./temp/",ch;
-	char in[10];
-	static int file_no=1;
-	sprintf(in,"%d",file_no);
-	strcat(File_Name,in);
-	strcat(File_Name, ".txt");
-        FILE *oldFileName = fopen("temp.txt" , "r");
-	FILE *newFileName = fopen(File_Name, "w");
-	/*
-	while(*f!='\0')
-	{
-        putc(*f, newFileName);
-        f++;
-	}*/
-	//putc('\n', newFileName);
-	ch = getc(oldFileName);
-	while(ch != EOF)
-	{
-	   putc(ch, newFileName);
-	   ch = getc(oldFileName);
-	}
-	printf("File Transfered to %d.txt\n",file_no);
-	file_no++;
-	fclose(oldFileName);
-	//fclose(newFileName);
-}
-
-int findkey(char *str)
-{
-	int i=0,key=0;
-	while(str[i]!='\0')
-	{
-	  key+=(int)str[i++];
-	}
-	while(key>100)
-	{
-	  key/=10;
-	}
-	return key;
-}
-
-void putDatainHash(char **result,int depth)
-{
-struct	LinkList *temp=NULL,*p=NULL,*trav;
-int index,i,f;
-        for(i=0;i<10;i++)
+//Function that find URL and put in array of char
+void get_urls(char *html,int file_size,char *urlofthispage,int depth) {
+        int i,pos=0;
+        char *result[11],*tmp;
+        result[0]=urlofthispage;
+        for(i=1;i<11 && pos<file_size;)
         {
-                temp=(struct LinkList*)malloc(sizeof(struct LinkList));
-                temp->key=findkey(result[i]);
-                temp->next=NULL;
-                index=temp->key;
-                strcpy(temp->url,result[i]);
-                temp->depth=depth+1;
-                if(Head==NULL)
+                tmp=(char*)calloc(1,125);
+                pos=GetNextURL(html , urlofthispage , tmp , pos);
+                if(!(check_Already_Present(tmp,result,i)))
                 {
-                        temp->next=NULL;
-                        temp->flag=1;
-                        temp->depth=depth;
-                        Head=temp;
-                        last=temp;
-                        node[index].next=temp;
-                        node[index].last=temp;
-                        node[index].count=1;
+                        result[i]=tmp;
+                        i++;
                 }
                 else
+                free(tmp);
+        }
+        put_links_in_list(result,i,depth);
+}
+
+//Function to copy content of file to Array
+void copy_content(char *open,char *url,int depth) {
+        struct stat st;
+        stat(open,&st);
+        int i=0,file_size=st.st_size;
+        char *content=(char*)calloc(1,file_size),ch;
+        FILE *temp=fopen(open,"r");
+        while((ch=fgetc(temp))!=EOF)
+                content[i++]=ch;
+        content[i]='\0';
+        get_urls(content,file_size,url,depth);
+        free(content);
+}
+
+//Function to intialize Struct
+void initialise_Struct() {
+        for(int i=0;i<50;i++)
+        {
+                hash[i].first=NULL;
+                hash[i].last=NULL;
+                hash[i].count=0;
+        }
+}
+
+//Function to generate key by modulus 50
+int generate_Key(char *url) {
+        int i=0,l=strlen(url),key=0;
+        while(url[i]!='\0')
+            key+=(int)(url[i++]);
+        return key%50;
+}
+
+//Function to print data got from the linklist
+void print_list(struct Link *head) {
+    struct Link *temp=head;
+    while(temp!=NULL)
+    {
+        printf("key = %d Link = %s depth = %d flag= %d\n",temp->Link_key,temp->Link_url,temp->Link_depth,temp->Link_flag);
+        temp=temp->Link_next;
+    }
+}
+
+//Function to save URL in File
+void save_links_in_file(struct Link* head) {
+        FILE *ptr=fopen("./links.txt","w");
+        struct Link *temp=head;
+        while(temp!=NULL) {
+                fprintf(ptr,"%s ",temp->Link_url);
+                fprintf(ptr,"%d ",temp->Link_key);
+                fprintf(ptr,"%d ",temp->Link_depth);
+                fprintf(ptr,"%d\n",temp->Link_flag);
+                temp=temp->Link_next;
+        }
+}
+
+//Function to retrive links from File stored
+void retrieve_links_From_File() {
+        initialise_Struct();  // Inirialise Struct
+        head=NULL;
+        FILE *ptr=fopen("./links.txt","r");
+        char ch,c[150]={0},url[125]={0},*urlss=NULL;
+        int i=0,j=0,k=0;
+        struct Link *trav;
+        while((ch=fgetc(ptr))!=EOF)
+        {
+                if(ch=='\n')
                 {
-                        if(node[index].next==NULL)
+                        c[i]='\0';
+                        i=j=k=0;
+                        struct Link *temp=(struct Link*)calloc(1,sizeof(struct Link));
+                        while(c[k]!=' ')
                         {
-                               last->next=temp;
-                               temp->next=NULL;
-                               temp->flag=0;
-                               last=temp;
-                               node[index].next=temp;
-                               node[index].last=temp;
-                               node[index].count=1;
+                                url[j]=c[k];
+                                j++;
+                                k++;
+                        }
+                        url[j]='\0';
+                        urlss=(char*)calloc(1,100);
+                        strcpy(urlss,url);
+                        temp->Link_key=generate_Key(url);
+                        int key=temp->Link_key;
+                        temp->Link_url=urlss;
+                        k++;
+                        j=0;
+                        while(c[k]!=' ')
+                                k++;
+                        k++;
+                        while(c[k]!=' ')
+                        {
+                                url[j]=c[k];
+                                j++;
+                                k++;
+                        }
+                        url[j]='\0';
+                        temp->Link_depth=atoi(url);
+                        j=0;
+                        k++;
+                        while(c[k]!='\0')
+                        {
+                                url[j]=c[k];
+                                j++;
+                                k++;
+                        }
+                        url[j]='\0';
+                        temp->Link_flag=atoi(url);
+                        if(head==NULL)
+                        {       temp->Link_next=NULL;
+                                head=temp;
+                                last=temp;
+                                hash[key].first=temp;
+                                hash[key].last=temp;
+                                hash[key].count=1;
+                                continue;
                         }
                         else
                         {
-                            trav=node[index].next;
-                            if((strcmp(node[index].next->url,temp->url)==0)||(strcmp(node[index].last->url,temp->url)==0))
+                                if(hash[key].first==NULL)
+                                {
+                                        last->Link_next=temp;
+                                        temp->Link_next=NULL;
+                                        last=temp;
+                                        hash[key].first=temp;
+                                        hash[key].last=temp;
+                                        hash[key].count=1;
+                                }
+                                else
+                                {
+                                        trav=hash[key].first;
+                                        if((strcmp(hash[key].first->Link_url,temp->Link_url)==0)||(strcmp(hash[key].last->Link_url,temp->Link_url)==0))
+                                        {
+                                                free(temp);
+                                                free(urlss);
+                                                continue;
+                                        }
+                                int f=0;
+                                while(trav->Link_next!=NULL&&trav->Link_next->Link_key==key)
+                                {
+                                        if(strcmp(trav->Link_url,temp->Link_url)==0)
+                                        {
+                                                free(temp);
+                                                f=1;
+                                                break;
+                                        }
+                                        trav=trav->Link_next;
+                                }
+                                if(f)
+                                continue;
+                                if(trav->Link_next==NULL)
+                                last=temp;
+                                temp->Link_next=trav->Link_next;
+                                trav->Link_next=temp;
+                                hash[key].last=temp;
+                                hash[key].count++;
+                              }
+                        }
+                        c[0]='\0';
+                }
+                else
+                        c[i++]=ch;
+        }
+        print_list(head);
+}
+
+//Function to put links in LinkList
+void put_links_in_list(char **result,int l,int depth) {
+        struct Link *temp,*trav;
+        for(int i=0;i<l;i++)
+        {
+                temp=(struct Link*)calloc(1,sizeof(struct Link));
+                temp->Link_key=generate_Key(result[i]);
+                int key=temp->Link_key;
+                temp->Link_url=result[i];
+                temp->Link_depth=depth+1;
+                if(head==NULL)
+                {       temp->Link_next=NULL;
+                        temp->Link_flag=1;
+                        temp->Link_depth=1;
+                        head=temp;
+                        last=temp;
+                        hash[key].first=temp;
+                        hash[key].last=temp;
+                        hash[key].count=1;
+                        continue;
+                }
+                else
+                {
+                        if(hash[key].first==NULL)
+                        {
+                               last->Link_next=temp;
+                               temp->Link_next=NULL;
+                               temp->Link_flag=0;
+                               last=temp;
+                               hash[key].first=temp;
+                               hash[key].last=temp;
+                               hash[key].count=1;
+                        }
+                        else
+                        {
+                            trav=hash[key].first;
+                            if((strcmp(hash[key].first->Link_url,temp->Link_url)==0)||(strcmp(hash[key].last->Link_url,temp->Link_url)==0))
                                 {
                                     free(temp);
                                     continue;
                                 }
-                            f=0;
-                            while(trav->next!=NULL && trav->key==index)
+                            int f=0;
+                            while(trav->Link_next!=NULL&&trav->Link_next->Link_key==key)
                             {
-                                if(strcmp(trav->url,temp->url)==0)
+                                if(strcmp(trav->Link_url,temp->Link_url)==0)
                                 {
                                     free(temp);
                                     f=1;
                                     break;
                                 }
-                                trav=trav->next;
+                                trav=trav->Link_next;
                             }
                             if(f)
                             continue;
-                            if(trav->next==NULL)
+                            if(trav->Link_next==NULL)
                             last=temp;
-                            temp->flag=0;
-                            temp->next=trav->next;
-                            trav->next=temp;
-                            node[index].last=temp;
-                            node[index].count++;
+                            temp->Link_flag=0;
+                            temp->Link_next=trav->Link_next;
+                            trav->Link_next=temp;
+                            hash[key].last=temp;
+                            hash[key].count++;
                         }
                 }
         }
-        struct LinkList *head=Head;
-        while(head!=NULL)
-        {
-            printf("---linklist---%s\n",head->url);
-            head=head->next;
-        }
-    }
-
-void saveFile()
-{
-    FILE *fp= fopen("links.txt", "wb+");
-    struct hash *hash=node;
-    int i=0;
-    while(i++<50){
-
-		}
-    fclose(fp);
+        save_links_in_file(head);
 }
 
-/*
-void loadFile()
-{
-    FILE *fp= fopen("links.txt", "r+");
-    struct LinkList *head=Head;
-    int i=0,n;
-    char str[100];
-    head=(struct LinkList*)malloc(sizeof(struct LinkList));
-    n=fscanf(fp,"%s[^\n]", str);
-    strcpy(head->url,str);
-    head->next=NULL;
-    while(i<100)
-    {
-        head->next=(struct LinkList*)malloc(sizeof(struct LinkList));
-        head=head->next;
-        n=fscanf(fp,"%s[^\n]", str);
-        strcpy(head->url,str);
-        head->next=NULL;
-        i++;
-    }
-    head=Head;
-    for(int i=0;i<100;i++)
-    {
-        printf("-newLinkList--%s\n",head->url);
-        head=head->next;
-    }
-    fclose(fp);
-}*/
-
-char** fetch_links(char *url)   // function will take url from nextGenurl function and put it in the array and check duplicay wheater url exits in array or not!!
-{
-    int file_Size =filesize();
-    file_Size++;
-
-	char *filecontent = (char*)malloc(file_Size*sizeof(char));              // create pointer where all file content can store
-	filecontent = readcontent();
-
-	char *result = (char*)malloc(file_Size*sizeof(char));                   // create pointer where link will come from
-    int lastpos=0,flag=0,count=0;
-
-    char **linkarray;                                                       // create 2d array to store links
-    linkarray=(char **)malloc(sizeof(char *)*100);                          // giving space for rows
-
-    for(int i=0;i<100;i++)
-      linkarray[i] = (char *)malloc(sizeof(char)*200);                      // each rows in allocated 200 char space
-
-	lastpos=GetNextURL(filecontent,url,result ,0);
-	strcpy(linkarray[count++],result);
-
-    while(count<10)
-    {
-      lastpos=GetNextURL(filecontent,url,result ,lastpos);
-      for(int j=0;j<count;j++)
-      {
-        if(strcmp(result,linkarray[j])==0)
-        {
-          flag=1;
-          break;
-        }
-      }
-      if(flag==0)
-        strcpy(linkarray[count++],result);
-      else
-      {
-       lastpos=GetNextURL(filecontent,url,result ,lastpos);
-       flag=0;
-      }
-    }
-	return(linkarray);
-}
-
-char* get_next_url(struct LinkList *head,int depth)
-{
-        struct LinkList *temp=head;
-        while(temp!=NULL)
-        {
-                if(temp->flag==0)
+//Function that put url in linklist
+char* get_URL_from_linklist(struct Link *head,int depth) {
+        struct Link *temp=head;
+        while(temp!=NULL) {
+                if(temp->Link_flag==0 && temp->Link_depth==depth)
                 {
-                        temp->flag=1;
-                        return temp->url;
+                        temp->Link_flag=1;
+                        return temp->Link_url;
                 }
-                temp=temp->next;
+                temp=temp->Link_next;
         }
         return NULL;
 }
 
+//Function that transfer data from temp file to orginal file
+void transfer_File(char *url,int depth) {
+        static int fileNo=1;
+        char file_name[20]={0},ch[3],ch1;
+        sprintf(ch, "%d" , fileNo);
+        strcat(file_name,"./temp/");
+        strcat(file_name,ch);
+        strcat(file_name,".txt");
+        FILE *oldFile=fopen("./temp.txt","r");
+        FILE *newFile=fopen(file_name,"w");
+        printf("\n----%s----\n",file_name);
+        fprintf(newFile,"%s\n",url);
+        fprintf(newFile,"%d\n",depth);
+
+        while((ch1=fgetc(oldFile))!=EOF)
+                putc(ch1,newFile);
+
+        copy_content(file_name,url,depth);
+        fclose(oldFile);
+        fileNo++;
+}
+
+//Function to get WebPage or download webpage
+void getpage(char *url,char *dir,int depth) {
+          char urlbuffer[200]={0};
+	        strcat(urlbuffer, "wget -O ./temp.txt ");
+	        strcat(urlbuffer, url);
+	        system(urlbuffer);
+	        transfer_File(url,depth);
+}
+
+//Function to check Depth
+int check_URL(char argv[]) {
+	int i=0;
+	char seed_url[strlen(argv)+5];
+	while(argv[i]!='/'&&argv[i]!='\0')
+	{
+		seed_url[i]=argv[i];
+		i++;
+	}
+	seed_url[i]='\0';
+	if(strcmp(seed_url,BASE_URL)==0)
+		return 1;
+ 	else
+		return 0;
+}
+
+//Function to depth
+int checkDepth(char *d) {
+        int de=0;
+        sscanf(d, "%d", &de);
+        if(de>5 || de<1)
+            return 0;
+        return 1;
+}
+
+//Function to check Dir
+int check_Dir(char *dir) {
+  struct stat statbuf;
+  if ( stat(dir, &statbuf) == -1 )
+  {
+    fprintf(stderr, "Invalid directory\n");
+    exit(1);
+  }
+  if ( !S_ISDIR(statbuf.st_mode) )
+  {
+    fprintf(stderr, "Invalid directory entry. Your input isn't a directory\n");
+    exit(1);
+  }
+  if ( (statbuf.st_mode & S_IWUSR) != S_IWUSR )
+  {
+    fprintf(stderr, "Invalid directory entry. It isn't writable\n");
+    exit(1);
+  }
+  return 1;
+}
+
+//Function to check arguments are correct or Nost
+void checkArguments(int argc,char* argv[]) {
+            if(checkDepth(argv[2]))
+                if(check_URL(argv[1]))
+                    if(check_Dir(argv[3]))
+                    {
+                        printf("All Arguments are correct\n");
+                        return ;
+                    }
+                else
+                    printf("Invalid URL\n");
+            else
+                printf("Wrong input of Depth");
+        else
+            printf("Arguments not recieved not properly");
+        exit(0);
+}
+
+//Main Function
 int main(int argc,char *argv[])
 {
-    char **ptr;
-    checkArguments(argc, argv);
-    get_page(argv[1]);
-    ptr=fetch_links(argv[1]);
-    putDatainHash(ptr,1);
-    transfer_File(argv[1]);
-
-    int depth=2;
-    struct LinkList *head=Head,*newlink;
-    while(depth<50)
-    {
-        free(ptr);
-        if(head->flag==0)
+        char c,*url=NULL;
+        int depth=0;
+        checkArguments(argc,argv);  //Function to check Arguments
+        initialise_Struct();        //intialize struct
+        printf("Capture New Data(n or N) or Retrive Saved Data(p || P) \n");
+        scanf("%c",&c);
+        if(c=='p' || c=='P')
+              retrieve_links_From_File();   //Function to retrieve data from file
+        else if(c=='n' || c=='N')
+	        getpage(argv[1],argv[3],1);      //Function to get Webpage
+        else
         {
-            printf("----------------------Link is %s\n",head->url);
-            get_page(head->url);
-            ptr=fetch_links(head->url);
-            putDatainHash(ptr,depth+1);
-            transfer_File(head->url);
+          printf("Data entered wrong");
+          exit(0);
         }
-        head=head->next;
-        depth++;
-    }
-    return 0;
+        sscanf(argv[2], "%d", &depth);    //Convert arguments into int
+        while(depth<5)
+        {
+                while((url=get_URL_from_linklist(head,depth))!=NULL)
+                        getpage(url,argv[3],depth+1);   //Function to get Webpage
+                depth++;
+        }
+        print_list(head);     //Function to print Key,Link,Depth ,flag
+	      return 0;
 }
