@@ -16,7 +16,7 @@ struct Link
         int Link_depth;
 }*head=NULL,*last=NULL;
 
-//Structure of Link Hash Node
+// Structure of Link Hash Node
 struct Hash
 {
         struct Link* first;
