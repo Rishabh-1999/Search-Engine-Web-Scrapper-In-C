@@ -1,2 +1,9 @@
 # Search-Engine
-Made for UCA Project
+Search Engine made in C.
+
+Work
+-----
+It is Divided into three parts
+- Indexer
+- Linker
+- Crawler
